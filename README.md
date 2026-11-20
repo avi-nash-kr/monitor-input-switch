@@ -64,7 +64,11 @@ Environment variables:
 | `INPUT_VCP` | `60` | VCP code for input source |
 | `INPUT_VALUE` | `0x13` | Value to set when no argument is given |
 | `DDCUTIL_DISPLAY` | unset | Force a specific ddcutil display number |
+| `INPUT_RETRIES` | `3` | Number of times to retry if the readback does not match |
 | `LOG_FILE` | unset | Append every run and ddcutil output to this file |
+
+The script reads VCP `0x60` back after setting it, retries on failure, and
+shows a desktop notification if the switch did not stick.
 
 ## Requirements
 
@@ -104,9 +108,14 @@ for a vendor-specific input such as BenQ's USB-C; the monitor still accepts it.
   and confirm with `omarchy menu keybindings --print`.
 - **Want to debug a keybinding?** set `LOG_FILE` for the script or launch it
   through a wrapper and watch the log after pressing the keys.
-- **The monitor snaps back to HDMI** — some monitors auto-select an active
-  source when the selected input has no signal; check the other PC's USB-C
-  output and the monitor's "Auto input" OSD setting.
+- **It switches, then snaps back to HDMI after a while** — on the BenQ EW270Q,
+  turn **OFF** `OSD > System > Advanced > Input Auto Switch` (the manual calls
+  it "Sets to automatically detect the available input source"). While it is
+  ON, the monitor can decide to go back to whichever input currently has a
+  signal. Also check that the other PC is awake and its USB-C output is active.
+- **The keyboard shortcut works once and never again** — if your keyboard or
+  mouse follows the monitor through a KVM/USB-C dock, the keypress no longer
+  reaches this PC once the screen moves; use the monitor's OSD to return.
 
 ## License
 

@@ -1,11 +1,12 @@
 #!/bin/sh
-# Set a monitor's input source with ddcutil.
+# Set a monitor's input source with ddcutil, then read it back to confirm.
 # Usage: monitor-input-switch [VCP value, e.g. 0x13]
 
 set -u
 
 VCP="${INPUT_VCP:-60}"
-VALUE="${1:-${INPUT_VALUE:-0x13}}"
+TARGET="${1:-${INPUT_VALUE:-0x13}}"
+RETRIES="${INPUT_RETRIES:-3}"
 DISPLAY_ARG=""
 
 if [ -n "${DDCUTIL_DISPLAY:-}" ]; then
@@ -17,16 +18,39 @@ if ! command -v ddcutil >/dev/null 2>&1; then
   exit 1
 fi
 
-# shellcheck disable=SC2086
-set_vcp() { ddcutil $DISPLAY_ARG setvcp "$VCP" "$VALUE"; }
+upper() { printf '%s' "$1" | tr 'a-f' 'A-F'; }
+
+attempt=1
+while [ "$attempt" -le "$RETRIES" ]; do
+  output=$(ddcutil $DISPLAY_ARG setvcp "$VCP" "$TARGET" 2>&1)
+  rc=$?
+  actual=$(ddcutil $DISPLAY_ARG getvcp "$VCP" 2>&1 | sed -n 's/.*sl=\(0x[0-9A-Fa-f]*\).*/\1/p')
+  [ -n "$actual" ] || actual="unknown"
+
+  if [ "$rc" -eq 0 ] && [ "$(upper "$actual")" = "$(upper "$TARGET")" ]; then
+    result="ok"
+    break
+  fi
+
+  result="failed"
+  attempt=$((attempt + 1))
+  [ "$attempt" -le "$RETRIES" ] && sleep 1
+done
+
+message="monitor input $VCP -> $TARGET: $result (readback=$actual, tries=$((attempt - 1)))"
 
 if [ -n "${LOG_FILE:-}" ]; then
   mkdir -p "$(dirname "$LOG_FILE")"
   {
-    echo "=== $(date '+%F %T') setvcp $VCP $VALUE ==="
-    set_vcp 2>&1
-    echo "exit=$?"
+    echo "=== $(date '+%F %T') $message ==="
+    printf '%s\n' "$output"
   } >> "$LOG_FILE"
-else
-  set_vcp
 fi
+
+echo "$message"
+
+if [ "$result" != "ok" ] && command -v notify-send >/dev/null 2>&1; then
+  notify-send "Monitor input switch failed" "$message" 2>/dev/null || true
+fi
+
+[ "$result" = "ok" ]
