@@ -1,0 +1,32 @@
+#!/bin/sh
+# Set a monitor's input source with ddcutil.
+# Usage: monitor-input-switch [VCP value, e.g. 0x13]
+
+set -u
+
+VCP="${INPUT_VCP:-60}"
+VALUE="${1:-${INPUT_VALUE:-0x13}}"
+DISPLAY_ARG=""
+
+if [ -n "${DDCUTIL_DISPLAY:-}" ]; then
+  DISPLAY_ARG="--display $DDCUTIL_DISPLAY"
+fi
+
+if ! command -v ddcutil >/dev/null 2>&1; then
+  echo "monitor-input-switch: ddcutil is not installed" >&2
+  exit 1
+fi
+
+# shellcheck disable=SC2086
+set_vcp() { ddcutil $DISPLAY_ARG setvcp "$VCP" "$VALUE"; }
+
+if [ -n "${LOG_FILE:-}" ]; then
+  mkdir -p "$(dirname "$LOG_FILE")"
+  {
+    echo "=== $(date '+%F %T') setvcp $VCP $VALUE ==="
+    set_vcp 2>&1
+    echo "exit=$?"
+  } >> "$LOG_FILE"
+else
+  set_vcp
+fi
